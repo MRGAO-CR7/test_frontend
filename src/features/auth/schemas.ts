@@ -25,7 +25,11 @@ const oob = z
 export const SignupInputSchema = z.object({
   email,
   password,
-  first_name: z.string().trim().max(100).optional().default(''),
+  // first_name may be empty (auth_service tolerates ""); we default to '' in
+  // the form. We do NOT use `.default()` because zod 4 makes the schema's
+  // input type optional while the output is required, which trips up
+  // react-hook-form's resolver type inference.
+  first_name: z.string().trim().max(100),
   last_name: z.string().trim().min(1, 'Last name is required.').max(100),
 });
 export type SignupInput = z.infer<typeof SignupInputSchema>;
@@ -39,6 +43,6 @@ export type VerifyInput = z.infer<typeof VerifyInputSchema>;
 export const LoginInputSchema = z.object({
   email,
   password,
-  remember_me: z.boolean().default(false),
+  remember_me: z.boolean(),
 });
 export type LoginInput = z.infer<typeof LoginInputSchema>;

@@ -6,17 +6,19 @@ import { serverEnv } from '@/shared/config/env';
  * Refresh-token cookie helpers for the BFF.
  *
  * Cookie design:
- *   - HttpOnly:   JS in the browser can never read it (XSS protection)
- *   - Secure:     dev=false, prod=true (no HTTPS in dev)
+ *   - HttpOnly:        JS in the browser can never read it (XSS protection)
+ *   - Secure:          dev=false, prod=true (no HTTPS in dev)
  *   - SameSite=Strict: only sent for same-site requests; CSRF protection
- *   - Path=/api/auth: only sent to BFF auth routes; never to /api/test/*
- *   - 30 days:    matches typical Entra refresh-token lifetime
+ *   - Path=/:          standard for SPA session cookies — needed so the
+ *                      root-level `proxy.ts` can decide where to redirect.
+ *                      Security is enforced by HttpOnly + SameSite, not Path.
+ *   - 30 days:         matches typical Entra refresh-token lifetime
  *
  * Rotation: every successful /api/auth/refresh overwrites this cookie with
  * the new refresh_token returned by Entra.
  */
 
-const COOKIE_PATH = '/api/auth';
+const COOKIE_PATH = '/';
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export async function setRefreshCookie(refreshToken: string): Promise<void> {
