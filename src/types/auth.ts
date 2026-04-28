@@ -2,13 +2,18 @@
  * Shared auth types — used by SPA, BFF route handlers, and feature modules.
  *
  * Mirrors the auth_service contract:
- *   POST /auth/login   { email, password, remember_me? } -> { tokens, user }
- *   POST /auth/refresh { refresh_token } -> { tokens, user? }
- *   POST /auth/signup  { email, password, first_name?, last_name } -> { ok }
- *   POST /auth/verify  { email, oob } -> { tokens, user }   (no refresh_token)
  *
- * The BFF layer hides refresh_token from the browser entirely; the SPA only
- * ever sees `BffSession` (access_token + user + expires_in).
+ *   POST /auth/signup  -> { status:true, message, challenge_target_label, code_length, interval }
+ *   POST /auth/verify  -> { status:true, message, user_uuid, email, first_name, last_name,
+ *                           tokens: { access_token, token_type, expires_in } }   // 201, no refresh
+ *   POST /auth/login   -> { status:true, message, user_uuid, email,
+ *                           tokens: { access_token, token_type, expires_in, refresh_token? } }
+ *   POST /auth/refresh -> { status:true, message, user_uuid, email,
+ *                           tokens: { access_token, token_type, expires_in, refresh_token } }
+ *   error (any)        -> { status:false, message, error?: 'code' }   // 4xx
+ *
+ * The BFF strips `refresh_token` from JSON and sets it as an HttpOnly cookie.
+ * The SPA only ever sees `BffSession` (access_token + user + expires_in).
  */
 
 export interface AuthUser {
@@ -18,7 +23,6 @@ export interface AuthUser {
   last_name?: string;
 }
 
-/** Token bundle as returned by auth_service (server-internal). */
 export interface UpstreamTokenBundle {
   access_token: string;
   token_type: 'Bearer';
@@ -26,14 +30,27 @@ export interface UpstreamTokenBundle {
   refresh_token?: string;
 }
 
-/** Shape auth_service returns from /login, /verify, /refresh (success). */
+/** Shape auth_service returns from /login, /verify, /refresh. */
 export interface UpstreamAuthSuccess {
   status: true;
-  user?: AuthUser;
+  message?: string;
+  user_uuid?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
   tokens: UpstreamTokenBundle;
 }
 
-/** Shape auth_service returns on failure. */
+/** Shape auth_service returns from /signup (no tokens). */
+export interface UpstreamSignupSuccess {
+  status: true;
+  message?: string;
+  challenge_target_label?: string;
+  code_length?: number;
+  interval?: number;
+}
+
+/** Shape auth_service returns on any failure. */
 export interface UpstreamAuthError {
   status: false;
   message: string;
@@ -52,10 +69,18 @@ export interface BffSession {
   user: AuthUser;
 }
 
-/** What the BFF returns on signup (no tokens — verify step issues them). */
+/** Public response of POST /api/auth/signup. */
 export interface BffSignupResult {
   ok: true;
   email: string;
+  challenge_target_label?: string;
+  code_length?: number;
+  interval?: number;
+}
+
+/** Public response of POST /api/auth/logout. */
+export interface BffLogoutResult {
+  ok: true;
 }
 
 /** Normalized error shape exposed to the SPA for any /api/auth/* failure. */
