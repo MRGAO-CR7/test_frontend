@@ -90,7 +90,7 @@ with `NEXT_PUBLIC_` are **server-only** and never reach the browser bundle.
 ## Phase status
 
 - [x] Phase 1 — Scaffold + tooling + skeleton
-- [ ] Phase 2 — Infra: env, authStore, axios + single-flight, providers, broadcast
+- [x] Phase 2 — Infra: env, authStore, axios + single-flight, providers, broadcast
 - [ ] Phase 3 — BFF route handlers
 - [ ] Phase 4 — Pages (signup / verify / login / dashboard)
 - [ ] Phase 5 — Docker compose (joins `bbm` external network)
