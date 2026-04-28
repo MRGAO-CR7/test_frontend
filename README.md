@@ -56,7 +56,9 @@ src/
 
 ## Local setup
 
-Prereqs: Node 20+, Docker, Corepack-enabled pnpm.
+Prereqs: Node 22+, Docker Desktop, Corepack-enabled pnpm.
+
+### Option A — `pnpm dev` on the host
 
 ```bash
 # 1) make sure auth_service is running on :8008 (a separate repo)
@@ -66,8 +68,41 @@ pnpm dev
 # open http://localhost:3000
 ```
 
-> The Docker workflow lands in **Phase 5**. Until then `pnpm dev` is the
-> shortest path; it talks to the host-exposed `auth_service` on `:8008`.
+`.env.local` points at host-exposed services (`localhost:8008`, `localhost:8009`).
+
+### Option B — `docker compose up` (joins the `bbm` network)
+
+```bash
+# 0) one-time: make sure the shared bridge network exists
+docker network inspect bbm >/dev/null 2>&1 || docker network create bbm
+
+# 1) make sure auth_service is up and joined to bbm
+(cd /path/to/auth_service && docker compose up -d)
+
+# 2) start the frontend
+docker compose up --build -d
+docker compose logs -f test_frontend
+# open http://localhost:3000
+
+# stop without losing the pnpm/.next caches:
+docker compose down
+# wipe everything (slow next start, but fully clean):
+docker compose down -v
+```
+
+What compose does:
+
+- bind-mounts the project so `next dev` hot-reloads on edits;
+- keeps `node_modules`, `.next`, and the pnpm store on **named volumes** so the
+  host's macOS-built `node_modules` never shadows the linux one in the
+  container;
+- joins the external `bbm` network so the BFF reaches upstreams via Docker
+  DNS — `auth_webserver:8000` and `test_api_webserver:8000` — instead of
+  `localhost`.
+
+Compose's `environment:` block overrides any matching key in `.env.local`
+(Next.js never overwrites a value already in `process.env`), so the host and
+container can use different upstream URLs without editing files.
 
 ## Scripts
 
@@ -93,5 +128,5 @@ with `NEXT_PUBLIC_` are **server-only** and never reach the browser bundle.
 - [x] Phase 2 — Infra: env, authStore, axios + single-flight, providers, broadcast
 - [x] Phase 3 — BFF route handlers
 - [x] Phase 4 — Pages (signup / verify / login / dashboard)
-- [ ] Phase 5 — Docker compose (joins `bbm` external network)
+- [x] Phase 5 — Docker compose (joins `bbm` external network)
 - [ ] Phase 6 — Polish (multi-tab sync, error boundary, toast)

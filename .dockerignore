@@ -1,0 +1,42 @@
+# Dependencies + build outputs (re-installed/regenerated inside container)
+node_modules
+.pnpm-store
+.next
+out
+build
+dist
+
+# Local secrets — compose passes env vars explicitly
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+# allow .env.example so devs see expected variables when reading the image
+!.env.example
+
+# Tooling caches
+.cache
+.turbo
+*.log
+*.tsbuildinfo
+
+# VCS + editor
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Docker artefacts themselves
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+Dockerfile.*
+.dockerignore
+
+# Test artefacts (none yet)
+coverage
+playwright-report
+.test-results

@@ -1,0 +1,116 @@
+# =============================================================================
+# Local development stack for test_frontend (BFF) only.
+#
+# This compose file does NOT start auth_service — that lives in its own
+# repo/compose project (auth_service-*). We just join the same external
+# Docker network (`bbm`) so both can talk to each other via DNS:
+#
+#   test_frontend  --(http://auth_webserver:8000)-->  auth_service nginx
+#   test_frontend  --(http://test_api_webserver:8000)--> test_api nginx (future)
+#
+# Prereqs (one-time):
+#   1) `bbm` network exists. If not, create it:
+#         docker network create bbm
+#   2) auth_service is running and joined to `bbm`:
+#         (cd /Users/ericgao/bbm/github/auth_service && docker compose up -d)
+#
+# Quick-start:
+#   docker compose up --build -d        # start in background
+#   docker compose logs -f test_frontend # follow dev server logs
+#   open http://localhost:3000
+#   docker compose down                  # stop + remove (keeps volumes)
+#   docker compose down -v               # also wipe pnpm/node_modules cache
+# =============================================================================
+
+services:
+  test_frontend:
+    container_name: test_frontend_dev
+    image: test_frontend:dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    # Mac/Windows Docker Desktop user mapping: run as the host user so files
+    # created inside the container (e.g. .next cache) are owned by you.
+    # Comment out if it causes permission issues on Linux.
+    # user: "${UID:-1000}:${GID:-1000}"
+
+    # ---- Networking ---------------------------------------------------------
+    # Join the shared bridge network so we can reach auth_service via DNS.
+    networks:
+      - bbm
+    ports:
+      - '3000:3000'
+
+    # ---- Filesystem ---------------------------------------------------------
+    # 1) Bind-mount the source so edits hot-reload.
+    # 2) Anonymous/named volumes for node_modules + .next + pnpm store so the
+    #    macOS-built host versions DO NOT shadow the linux-built ones inside
+    #    the container.
+    volumes:
+      - .:/app:cached
+      - node_modules-data:/app/node_modules
+      - next-cache-data:/app/.next
+      - pnpm-store-data:/pnpm/store
+
+    # ---- Environment --------------------------------------------------------
+    # IMPORTANT: values set here override .env.local (Next.js does NOT
+    # overwrite values that already exist in process.env). We only override
+    # the upstream URLs, which must use Docker DNS names instead of
+    # localhost when running inside the network.
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: '1'
+
+      # Upstreams via the bbm network DNS:
+      AUTH_SERVICE_URL: http://auth_webserver:8000/api/v1
+      TEST_API_URL: http://test_api_webserver:8000/api/v1
+
+      # Refresh cookie config — same as host dev for now.
+      AUTH_REFRESH_COOKIE_NAME: rt
+      AUTH_COOKIE_DOMAIN: ''
+      AUTH_COOKIE_SECURE: 'false'
+      UPSTREAM_TIMEOUT_MS: '20000'
+
+      # Public (browser bundle):
+      NEXT_PUBLIC_APP_NAME: test_frontend
+
+      # File-watcher knobs. Bind mounts on macOS sometimes miss inotify
+      # events; flip these to 'true' if HMR misses changes.
+      WATCHPACK_POLLING: 'false'
+      CHOKIDAR_USEPOLLING: 'false'
+
+    # ---- Lifecycle ----------------------------------------------------------
+    restart: unless-stopped
+    stop_grace_period: 10s
+    # Hit a static page that returns 200 once `next dev` is ready.
+    # The first compile is slow, so be generous with start_period.
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://localhost:3000/login']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+    # tty + stdin_open keep `next dev` happy in attached/detached modes
+    # and let `docker attach` show the colored output cleanly.
+    tty: true
+    stdin_open: true
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  node_modules-data:
+  next-cache-data:
+  pnpm-store-data:
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  # Shared external bridge created/managed elsewhere (auth_service compose).
+  # `external: true` means compose will NOT try to create or remove it —
+  # it must already exist before `docker compose up`.
+  bbm:
+    name: bbm
+    external: true

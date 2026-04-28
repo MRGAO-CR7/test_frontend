@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1.7
+
+# -----------------------------------------------------------------------------
+# Dev image for test_frontend.
+#
+# Goals:
+#   - Reproducible: pnpm version pinned via Corepack from package.json
+#     (`packageManager` field).
+#   - Fast iteration: source code is bind-mounted by docker-compose, so
+#     `next dev` running here picks up edits immediately.
+#   - No host-machine pollution: pnpm cache + node_modules live on named
+#     volumes (declared in docker-compose), never on the host.
+#
+# This image is dev-only. A separate (multi-stage) production Dockerfile
+# would be added in a future "Phase X — production" task.
+# -----------------------------------------------------------------------------
+
+FROM node:22-alpine
+
+# pnpm needs git in some scenarios (registry git+ urls); add curl for healthcheck.
+RUN apk add --no-cache git curl
+
+# Activate pnpm via Corepack at the version declared in package.json.
+RUN corepack enable
+
+# Where the bind mount lands.
+WORKDIR /app
+
+# Cache directory for pnpm — kept on a named volume so rebuilds are fast.
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV CI=true
+# Disable Next.js telemetry inside the container.
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copy lockfile + manifest first to leverage Docker layer cache when only
+# source changes. The actual source is bind-mounted at runtime so we DO NOT
+# `COPY . .` here.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/pnpm/store pnpm install --frozen-lockfile
+
+EXPOSE 3000
+
+# Bind to 0.0.0.0 so the host can reach it through the published port.
+CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]
