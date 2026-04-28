@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { authStore } from '@/features/auth/store/authStore';
 import { publishAuth } from '@/shared/lib/broadcast';
+import { toast } from '@/shared/store/toastStore';
 import type { BffSession } from '@/types/auth';
 
 /**
@@ -132,9 +133,9 @@ http.interceptors.response.use(
       return http(cfg);
     } catch (refreshErr) {
       if (typeof window !== 'undefined') {
-        // Avoid bouncing during /api/auth/* calls themselves.
         const path = window.location.pathname;
         if (!path.startsWith('/login')) {
+          toast.error('Session expired', 'Please sign in again.', 6000);
           window.location.assign('/login');
         }
       }

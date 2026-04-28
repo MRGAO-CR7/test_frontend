@@ -4,6 +4,7 @@ import { Alert } from '@/shared/components/Alert';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
 import { useTestApiHealth } from '@/features/dashboard/hooks/useTestApiHealth';
+import { toast } from '@/shared/store/toastStore';
 
 /**
  * Demo panel that exercises the full data path:
@@ -16,6 +17,20 @@ import { useTestApiHealth } from '@/features/dashboard/hooks/useTestApiHealth';
 export function HealthPanel() {
   const { data, error, isPending, isFetching, refetch } = useTestApiHealth();
 
+  // User-driven refetch. Toasts fire only on explicit refresh, never on
+  // automatic react-query background fetches (those just update `error`).
+  async function handleRefresh() {
+    const result = await refetch();
+    if (result.error) {
+      toast.error(
+        'Health check failed',
+        result.error instanceof Error ? result.error.message : 'Unknown error.',
+      );
+    } else if (result.data) {
+      toast.success('test_api is healthy');
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <header className="mb-4 flex items-center justify-between gap-4">
@@ -27,7 +42,7 @@ export function HealthPanel() {
             <code className="font-mono">GET /api/test/health</code> — round-trip via the BFF proxy.
           </p>
         </div>
-        <Button variant="secondary" size="sm" isLoading={isFetching} onClick={() => refetch()}>
+        <Button variant="secondary" size="sm" isLoading={isFetching} onClick={handleRefresh}>
           Refresh
         </Button>
       </header>

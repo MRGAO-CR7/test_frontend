@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { authApi } from '@/features/auth/api/client';
 import { authStore } from '@/features/auth/store/authStore';
 import { publishAuth } from '@/shared/lib/broadcast';
+import { toast } from '@/shared/store/toastStore';
 
 /**
  * Logout mutation.
@@ -34,6 +35,7 @@ export function useLogout() {
       authStore.clear();
       publishAuth({ type: 'logout' });
       queryClient.clear();
+      toast.info('Signed out');
       router.replace('/login');
     },
   });

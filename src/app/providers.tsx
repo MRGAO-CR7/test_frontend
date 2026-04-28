@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthBootstrap } from '@/shared/guards/AuthBootstrap';
+import { Toaster } from '@/shared/components/Toaster';
 
 /**
  * Root client-side providers.
@@ -42,6 +43,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={client}>
       <AuthBootstrap />
       {children}
+      <Toaster />
       {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );

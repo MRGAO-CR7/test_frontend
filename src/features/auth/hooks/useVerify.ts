@@ -2,9 +2,10 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { authApi } from '@/features/auth/api/client';
+import { authApi, BffApiError } from '@/features/auth/api/client';
 import { authStore } from '@/features/auth/store/authStore';
 import { publishAuth } from '@/shared/lib/broadcast';
+import { toast } from '@/shared/store/toastStore';
 import type { VerifyInput } from '@/features/auth/schemas';
 import type { BffSession } from '@/types/auth';
 
@@ -27,7 +28,12 @@ export function useVerify() {
         expiresAt: session.expires_at,
         user: session.user,
       });
+      toast.success('Account verified', 'You are now signed in.');
       router.replace('/dashboard');
+    },
+    onError: (err) => {
+      const msg = err instanceof BffApiError ? err.message : 'Network or server error.';
+      toast.error('Verification failed', msg);
     },
   });
 }
